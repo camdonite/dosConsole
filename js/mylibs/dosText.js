@@ -5,6 +5,7 @@
 'use strict';
 
 function dosText(element, w, h, r, c){
+	var throwError = false;
 	//"constants"
 	var spritePath = "ascii.png";
 	var charHeight = 16;
@@ -87,56 +88,73 @@ function dosText(element, w, h, r, c){
 		return 'rgb(' + textColors[color][0] + ',' + textColors[color][1] + ',' + textColors[color][2] + ')';
 	}
 	
-	this.putChar = function(char, row, col, color, bgColor){
+	this.putChar = function(character, row, col, color, bgColor){
+		if((row < 1) || (row > rows) || (col < 1) || (col > cols) || (character < 0) || (character > totalChars)) {
+			//something out of bounds
+			if (throwError) {
+				throw new Error("Index out of bounds");
+			} else {
+				return;
+			}
+		}
 		color = (color ? color : privateFgColor);
 		bgColor = (bgColor ? bgColor : privateBgColor);
 		
-		if (typeof(char) == "string"){
-			char = char.charCodeAt(0);
+		if (typeof(character) == "string"){
+			character = character.charCodeAt(0);
 		}
 		var screenRow = row - 1;
 		var screenCol = col - 1;
-		me.screenBuffer[row][col] = char;
+		var xStart = screenCol * charWidth;
+		var yStart = screenRow * charHeight;
+		screenBuffer[row][col] = character;
 		if (!isImageLoaded) return;
 
-		var sourceRow = Math.floor(char / charsPerRow);
-		var sourceCol = Math.floor(char % charsPerRow);
-
-		//ctx.fillStyle = colorStyle(bgColor);
+		ctx.fillStyle = colorStyle(bgColor);
 		
-		//ctx.fillRect((screenCol * charWidth), (screenRow * charHeight), //output start
-		//	charWidth, charHeight);
-		//ctx.fill();
+		ctx.fillRect(xStart, yStart, //output start
+			charWidth, charHeight);
+		ctx.fill();
 		
-		//ctx.fillStyle = colorStyle(color);
-
+		ctx.fillStyle = colorStyle(color);
+		var curChar = chars[character];
+		for (var i = 0; i < curChar.length; i ++){
+			var curRow = curChar[i];
+			for (var j = 0; j < curRow.length; j ++){
+				if (curRow[j]) {
+					ctx.fillRect(xStart + j, yStart + i, 1, 1);
+				}
+			}
+		}
 		//render the character
 		
 		
 
 
 		
+/*
 		ctx.drawImage(sprite,
 					(sourceCol * charWidth), (sourceRow * charHeight), //source start
 					charWidth, charHeight, //source size
 					(screenCol * charWidth), (screenRow * charHeight), //output start
 					charWidth, charHeight //output size
 				);
-		
+		*/
+
 	};
 	
 	function newRow(){
 		//character = (character ? character : space);
-			var row = new Array(cols);
-			for (var j = 0; j < cols; j ++){
+			var row = new Array(cols + 1);
+			for (var j = 1; j <= cols; j ++){
 				row[j] = space;
 			}
 			return row;		
 	}
 	
 	function newColorRow(){
-			var rowColors = new Array(cols);
-			for (var j = 0; j < cols; j ++){
+			var rowColors = new Array(cols + 1);
+			for (var j = 1; j <= cols; j ++){
 				rowColors[j] = textColors[privateScreenColor];
 			}
 			return rowColors;			
@@ -147,10 +165,10 @@ function dosText(element, w, h, r, c){
 	 */
 	function initScreenBuffer(){
 		console.log("initScreenBuffer");
-		me.screenBuffer = new Array(rows);
-		colorBuffer = new Array(rows);
-		for (var i = 0; i < rows; i ++){
-			me.screenBuffer[i] = newRow();
+		screenBuffer = new Array(rows + 1);
+		colorBuffer = new Array(rows + 1);
+		for (var i = 1; i <= rows; i ++){
+			screenBuffer[i] = newRow();
 			colorBuffer[i] = newColorRow();
 		}
 	}
@@ -159,11 +177,12 @@ function dosText(element, w, h, r, c){
 	 */
 	this.refreshScreen = function(){
 		console.log("refreshScreen");
-		for (var i = 0; i < rows; i ++){
-			for (var j = 0; j < cols; j ++){
-				me.putChar(me.screenBuffer[i][j], i, j);
+		for (var i = 1; i <= rows; i ++){
+			for (var j = 1; j <= cols; j ++){
+				me.putChar(screenBuffer[i][j], i, j);
 			}
 		}
+		console.log(i + ":" + j);
 	};
 	
 	/**
@@ -187,17 +206,17 @@ function dosText(element, w, h, r, c){
 		console.log(spriteData);
 		for (var i = 0; i < totalChars; i ++){
 			var character = new Array(charHeight);
-			var sourceRow = Math.floor(i / charsPerRow) * charHeight;
-			var sourceCol = Math.floor(i % charsPerRow) * charWidth;
+			var sourceRow = Math.floor(i / charsPerRow);// * charHeight;
+			var sourceCol = Math.floor(i % charsPerRow);// * charWidth;
 			//var pixelsPerRow = (charsPerRow * charWidth);
-			var pixelsPerRow = spriteImgData.width / 4;//TODO: Put this where pixelsPerRow is used
-			console.log(pixelsPerRow);
-			var sourceStartIndex = (pixelsPerRow * sourceRow) + (sourceCol * charWidth);
+			var pixelsPerRow = spriteImgData.width;//TODO: Put this where pixelsPerRow is used
+			
+			var sourceStartIndex = (pixelsPerRow * (sourceRow * charHeight)) + (sourceCol * charWidth);
 			var pixelRowOffset = sourceStartIndex;
 			for (var j = 0; j < charHeight; j ++){
 				var curRow = new Array(charWidth);//TODO: Maybe change this to uint8array? Or change to 1D array
 				for (var k = 0; k < charWidth; k ++){
-					curRow[k] = (spriteData[(sourceStartIndex + pixelRowOffset + k) * 4] < 128) ? 0 : 1;
+					curRow[k] = (spriteData[(/*sourceStartIndex + */pixelRowOffset + k) * 4] < 128) ? 0 : 1;
 				}
 				character[j] = curRow;
 				pixelRowOffset += pixelsPerRow;
@@ -228,11 +247,11 @@ function dosText(element, w, h, r, c){
 		if (posRow > rows) {
 			//bump screen
 			for (var i = 1; i < rows; i ++){
-				me.screenBuffer[i - 1] = me.screenBuffer[i];
+				screenBuffer[i - 1] = screenBuffer[i];
 				colorBuffer[i - 1] = colorBuffer[i];
 			}
-			me.screenBuffer[rows] = newRow();
-			colorBuffer[rows] = newRowColor();
+			screenBuffer[rows] = newRow();
+			colorBuffer[rows] = newColorRow();
 		}
 	};
 	
@@ -260,12 +279,11 @@ function dosText(element, w, h, r, c){
 	};
 	
 	this.locate = function(row, col){
-		if ((row > 0) && (row < rows) && (col > 0) && (col < cols))  {
-			posRow = row;
-			posCol = col;
-		} else {
-			throw new("Position outside of bounds");
+		if ((row < 1) || (row > rows) || (col < 1) || (col > cols)) {
+			throw new Error("Position outside of bounds");
 		}
+		posRow = row;
+		posCol = col;
 	};
 	
 	this.bgColor = function(color){
