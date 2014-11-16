@@ -24,12 +24,18 @@ for (var i = 1; i <= 30; i ++){
 	}
 }
 
-canvas.addEventListener('click', function(){
-	text.locate(29, 1);
+text.locate(27, 1);
+
+/*canvas.addEventListener('click', function(){
+	//text.locate(29, 1);
 	text.bgColor(6);
 	text.fgColor(3);
 	text.print("Hello, My name is Chase.\nI like beans.");
 	text.print("Hello, My name is Chase.\nI like beans.");
+});*/
+
+document.addEventListener('keydown', function(event) {
+	text.print(String.fromCharCode(event.keyCode));
 });
 
 

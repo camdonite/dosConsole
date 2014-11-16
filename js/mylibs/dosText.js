@@ -5,7 +5,7 @@
 'use strict';
 
 function dosText(element, w, h, r, c){
-	var throwError = false;
+	var throwError = true;
 	//"constants"
 	var spritePath = "ascii.png";
 	var charHeight = 16;
@@ -37,8 +37,6 @@ function dosText(element, w, h, r, c){
 			HTyellow:  [255, 255, 0  ], 14: [255, 255, 0  ],
 			HTwhite:   [255, 255, 255], 15: [255, 255, 255]
 		};
-		
-	console.log(textColors[7]);
 		
 	var textColorValues = [
 		"black",
@@ -78,17 +76,26 @@ function dosText(element, w, h, r, c){
 	var ctx = canvas.getContext("2d");
 	
 	var sprite = new Image();
-	//var spriteData;
 	
 	var screenBuffer;
 	var colorBuffer;
-	var me;
+	var me; //Use me in call back functions!
 	
 	function colorStyle(color){
 		return 'rgb(' + textColors[color][0] + ',' + textColors[color][1] + ',' + textColors[color][2] + ')';
 	}
 	
+	
 	this.putChar = function(character, row, col, color, bgColor){
+		if (!row) {
+			renderChar(character, posRow, posCol);
+		} else {
+			renderChar(character, row, col, color, bgColor);
+		}
+	};
+	
+	//TODO: get rid of args checks?
+	function renderChar(character, row, col, color, bgColor){
 		if((row < 1) || (row > rows) || (col < 1) || (col > cols) || (character < 0) || (character > totalChars)) {
 			//something out of bounds
 			if (throwError) {
@@ -99,7 +106,8 @@ function dosText(element, w, h, r, c){
 		}
 		color = (color ? color : privateFgColor);
 		bgColor = (bgColor ? bgColor : privateBgColor);
-		
+
+		//TODO: Force character to be a number?		
 		if (typeof(character) == "string"){
 			character = character.charCodeAt(0);
 		}
@@ -114,7 +122,7 @@ function dosText(element, w, h, r, c){
 		
 		ctx.fillRect(xStart, yStart, //output start
 			charWidth, charHeight);
-		ctx.fill();
+		//ctx.fill();
 		
 		ctx.fillStyle = colorStyle(color);
 		var curChar = chars[character];
@@ -126,22 +134,7 @@ function dosText(element, w, h, r, c){
 				}
 			}
 		}
-		//render the character
-		
-		
-
-
-		
-/*
-		ctx.drawImage(sprite,
-					(sourceCol * charWidth), (sourceRow * charHeight), //source start
-					charWidth, charHeight, //source size
-					(screenCol * charWidth), (screenRow * charHeight), //output start
-					charWidth, charHeight //output size
-				);
-		*/
-
-	};
+	}
 	
 	function newRow(){
 		//character = (character ? character : space);
@@ -164,7 +157,6 @@ function dosText(element, w, h, r, c){
 	 * Creates empty 2D screenBuffer array
 	 */
 	function initScreenBuffer(){
-		console.log("initScreenBuffer");
 		screenBuffer = new Array(rows + 1);
 		colorBuffer = new Array(rows + 1);
 		for (var i = 1; i <= rows; i ++){
@@ -176,21 +168,18 @@ function dosText(element, w, h, r, c){
 	 * redraws everthing on the screen
 	 */
 	this.refreshScreen = function(){
-		console.log("refreshScreen");
 		for (var i = 1; i <= rows; i ++){
 			for (var j = 1; j <= cols; j ++){
-				me.putChar(screenBuffer[i][j], i, j);
+				renderChar(screenBuffer[i][j], i, j);
 			}
 		}
-		console.log(i + ":" + j);
 	};
 	
 	/**
 	 * Callback when the image loads
 	 */
 	function imageDidLoad(){
-		console.log("Image loaded");
-		
+
 		//create invisible canvas in order to transfer image data
 		var tempCanvas = document.createElement("canvas");
 		tempCanvas.width = sprite.width;
@@ -203,7 +192,7 @@ function dosText(element, w, h, r, c){
 		tempCtx.drawImage(sprite, 0, 0);
 		var spriteImgData = tempCtx.getImageData(0, 0, sprite.width, sprite.height);
 		var spriteData = spriteImgData.data;
-		console.log(spriteData);
+
 		for (var i = 0; i < totalChars; i ++){
 			var character = new Array(charHeight);
 			var sourceRow = Math.floor(i / charsPerRow);// * charHeight;
@@ -223,20 +212,16 @@ function dosText(element, w, h, r, c){
 			}
 			chars[i] = character;
 		}
-		console.log(chars);
 		
 		isImageLoaded = true;
 		me.refreshScreen();
 	}
 	
 	this.loadSprite = function(fileName){
-		//tempCanvas = document.createElement("canvas");
-
 		spritePath = (fileName ? fileName : spritePath);
 		sprite.src = spritePath;
 		isImageLoaded = false;
 
-		
 		me = this;
 		sprite.addEventListener('load', imageDidLoad);
 	};
@@ -252,11 +237,20 @@ function dosText(element, w, h, r, c){
 			}
 			screenBuffer[rows] = newRow();
 			colorBuffer[rows] = newColorRow();
+			posRow = rows;
+			//me.refreshScreen(); //too slow
+			var imgData = ctx.getImageData(0, charHeight, width, (charHeight * (rows - 1)));
+			ctx.putImageData(imgData, 0, 0);
+			
+			ctx.fillStyle=colorStyle(privateScreenColor);
+			ctx.fillRect(0, (charHeight * (rows - 1)), width, charHeight);
 		}
 	};
 	
 	this.print = function(text) {
-		console.log(text);
+		if (typeof text == "number"){
+			text = "" + text;
+		}
 		for (var i = 0; i < text.length; i ++){
 			var curChar = text.charAt(i);
 			
@@ -266,7 +260,7 @@ function dosText(element, w, h, r, c){
 				if (posCol > cols) {
 					me.carriageReturn();
 				}
-				me.putChar(curChar, posRow, posCol);
+				renderChar(curChar, posRow, posCol);
 				posCol ++;
 			}
 			
@@ -303,7 +297,6 @@ function dosText(element, w, h, r, c){
 	this.debug = function(){
 		var tempCtx = canvas.getContext('2d');
 		spriteData = tempCtx.getImageData(0, 0, width, height).data;
-		console.log(spriteData);
 	};
 	
 	me = this;
